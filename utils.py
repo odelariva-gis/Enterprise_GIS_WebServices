@@ -16,27 +16,111 @@ from datetime import date
 import requests
 import openpyxl as pxl
 from openpyxl.utils.dataframe import dataframe_to_rows
+from typing import Callable
 
 importlib.reload(config)
 
+class DidNotAppend(Exception):
+    pass
 
 
-def funciton_timer(in_function)->str:
+
+def timer_decorator(file_path)->Callable:
 
     '''
-    Function wrapper to time other functions...
+    Decorator function to time other functions...
     '''
 
-    def wrap_function(*args, **kwargs):
-        t1= time()
-        result = in_function(*args, **kwargs)
-        t2 = time()
-        print(f'Function {in_function.__name__!r} executed in {(t2-t1):.4f}s')
-        return result
-    return wrap_function
+    def middle(in_function):
+
+        def wrap_function(*args, **kwargs):
+            t1= time.time()
+            result = in_function(*args, **kwargs)
+            t2 = time.time()
+            time_delta = t2 - t1
+
+            lil_spacer()
+            lil_bugger()
+            if time_delta < 60:
+                print(f'Function {in_function.__name__!r} was executed in {(t2-t1):.4f}s!')
+                with open(file_path, 'a') as f:
+                    f.write(f"{in_function.__name__}: {(t2-t1):.4f} seconds \n")
+
+            else:
+                print(f'Function {in_function.__name__!r} was executed in {((t2-t1)/60):.4f}m!')
+                with open(file_path, 'a') as f:
+                    f.write(f"{in_function.__name__}: {((t2-t1)/60):.4f} minutes \n")
+
+            lil_bugger()
+            lil_spacer()
+
+            
+            return result
+        return wrap_function
+    return middle
 
 
+def lil_bugger()-> None:
 
+    print("*"*50)
+
+    return None
+
+def lil_spacer()-> None:
+
+    print("\n")
+
+    return None
+
+def lil_dashy()-> None:
+
+    print("-" * 50)
+
+    return None
+
+def return_today()-> date:
+    '''
+    Rreturn today's dates
+    '''
+
+    today = date.today()
+    date_ = today.strftime("%Y%m%d")
+
+    return date_
+
+# def lil_bugger(in_function)-> Callable:
+#     '''
+#     Decorator function to include asterisks after function...
+#     '''
+
+#     bugs_ = "\n" + "*"*50
+
+#     def wrap_function(*args, **kwargs):
+#         return(f"{in_function} {bugs_}")
+#     return wrap_function
+
+# def lil_spacer(in_function)-> Callable:
+#     '''
+#     Decorator function to include space after function...
+#     '''
+
+#     space_ = "\n"
+#     def wrap_function(*args, **kwargs):
+#         return(f"{in_function} {space_}")
+#     return wrap_function
+
+# def lil_dashy(in_function)-> Callable:
+#     '''
+#     Decorator functiion to add dashes after function...
+#     '''
+    
+#     dash_ = "\n" + "-" *50
+    
+#     def wrap_function(*args, **kwargs):
+#         return (f"{in_function} {dash_}")
+#     return wrap_function
+
+@timer_decorator(f"timing_log_{return_today()}.txt")
 def loggin_agol(config_file_name: str) -> GIS:
 
     '''
@@ -108,7 +192,6 @@ def create_token_header(config_file: str, gis_source: GIS = None) -> dict:
     return endpoint_header
 
 
-
 def request_token(gis_source: GIS) -> str:
 
     '''
@@ -117,7 +200,7 @@ def request_token(gis_source: GIS) -> str:
     token = ''
 
     if gis_source:
-        print(f"Will get tokenf from the source GIS here: {gis_source}")
+        print(f"Will get token from the source GIS here: {gis_source}")
         token = gis_source._con.token
     
     print('Here is your current token: ')
@@ -125,6 +208,30 @@ def request_token(gis_source: GIS) -> str:
     print(token)
 
     return token
+
+@timer_decorator(f"timing_log_{return_today()}.txt")
+def log_in_source(gis_source: GIS, token_: str)-> None:
+    '''
+    Logs into the source 
+    '''
+
+    # params = {'f': 'json', 'token': token_}
+    source_users = gis_source.users.search(query='', sort_field='username', sort_order='asc', max_users=10000, outside_org=False, exclude_system=True)
+    print('Logged in to {}'.format(gis_source))
+
+    return source_users
+
+@timer_decorator(f"timing_log_{return_today()}.txt")
+def get_gis_content(gis_source)->List:
+    '''
+    Pulls GIS items of all owners and type Feature Service
+    '''
+
+    item_list = gis_source.content.search(query='owner:*', item_type = 'Feature Service', max_items = 1000)
+
+    print("We have {} feature services to process.".format(len(item_list)))
+
+    return item_list
 
 def pop_empty_urls(item_list: list)-> list:
     '''
@@ -234,6 +341,17 @@ def check_status_error(response_json, status_, error_)->str:
 
     return status_, error_
 
+@timer_decorator(f"timing_log_{return_today()}.txt")
+def return_json(url_: str, params_: dict):
+    '''
+    returns json items
+    '''
+    response = requests.post(url_, params = params_, verify = False)
+
+    return response.json()
+
+
+@timer_decorator(f"timing_log_{return_today()}.txt")
 def pull_json(item_list: List, params: dict) -> dict:
     '''
     iterate through items
@@ -257,8 +375,10 @@ def pull_json(item_list: List, params: dict) -> dict:
             current_url = item_.url.replace('rest','admin').replace('/MapServer','.MapServer') + '/iteminfo/manifest/manifest.json'
             print(f"Updated URL: {current_url}")
             
-            response = requests.post(current_url, params = params, verify = False)
-            response_json = response.json()
+            ###
+            # response = requests.post(current_url, params = params, verify = False)
+            # response_json = response.json()
+            response_json = return_json(current_url, params)
             status_, error_ = check_status_error(response_json, error_, status_)
             
             if status_ or error_:
@@ -268,13 +388,18 @@ def pull_json(item_list: List, params: dict) -> dict:
             if all_errors_:
                 print("Did not append to dictionary!")
                 lil_spacer()
-                raise Error
+                raise DidNotAppend
             else:
                 url_dict_[item_.title] = current_url
                 dict_[item_] = response_json
                 print(f"Appended the following: {response_json}")  
                 lil_spacer()
-            
+
+        ### except here    
+
+        # except DidNotAppend:
+        #     print("Did not append to dictionary...")
+        #     print("JSON Response Failed when using /MapServer to .MapServer, will try another path... ")
         except:
             print("JSON Response Failed when using /MapServer to .MapServer, will try another path... " )
             
@@ -297,7 +422,7 @@ def pull_json(item_list: List, params: dict) -> dict:
                 if all_errors_:
                     print("Did not append to dictionary!")
                     lil_spacer()
-                    raise Error
+                    raise DidNotAppend
                 else:
                     url_dict_[item_.title] = current_url
                     dict_[item_] = response_json
@@ -305,9 +430,14 @@ def pull_json(item_list: List, params: dict) -> dict:
                     print(response_json)
                     lil_spacer()
             
+        ### except here
+            except DidNotAppend:
+                print("Did not append to dictionary...")
+                print("JSON Response Failed when using /MapServer to .MapServer, will try another path... ")
+            
             except:
-                print("JSON Response Failed when using /FeatureServer to .MapServer. Both attemps failed will not append. ")
-                pass 
+                print("JSON Response Failed when using /MapServer to .MapServer, will try another path... " ) 
+                pass
         
         lil_dashy()
         lil_spacer()
@@ -316,7 +446,7 @@ def pull_json(item_list: List, params: dict) -> dict:
 
     return dict_, url_dict_
 
-
+@timer_decorator(f"timing_log_{return_today()}.txt")
 def iterate_json(dict_:dict, url_dict_:dict)->List:
     '''
     iterates through json
@@ -378,6 +508,12 @@ def iterate_json(dict_:dict, url_dict_:dict)->List:
                 list_.append('Service ends in GDB')
                 list_.append('Service ends in GDB')
                 list_.append('Service ends in GDB')
+                list_.append('Service ends in GDB')
+                list_.append('Service ends in GDB')
+                list_.append('Service ends in GDB')
+                list_.append('Service ends in GDB')
+                list_.append('Service ends in GDB')
+        
 
             elif on_ser_con_len == 1:
                 list_.append(on_ser_con)
@@ -463,6 +599,11 @@ def iterate_json(dict_:dict, url_dict_:dict)->List:
                 list_.append('Service ends in GDB')
                 list_.append('Service ends in GDB')
                 list_.append('Service ends in GDB')
+                list_.append('Service ends in GDB')
+                list_.append('Service ends in GDB')
+                list_.append('Service ends in GDB')
+                list_.append('Service ends in GDB')
+            
                 lil_spacer()
 
             elif on_prem_con_len == 1:
@@ -504,7 +645,7 @@ def iterate_json(dict_:dict, url_dict_:dict)->List:
                     list_.append("No onPremiseConnection Database")
                     print('No onPremiseConnection Database')
                 else:
-                    list_.append(split_[5 + e_].replace("DATABASE=", ''))
+                    list_.append(split_[5 + e_].replace("DATABASE=", '').replace('PROJECT_INSTANCE=', ''))
                     print(f"Appended ON_PREM_DATBASE: {split_[5 + e_]}")
                     
                 if split_[6 + e_] is None or split_[6 + e_] == '':
@@ -568,7 +709,6 @@ def output_to_excel(path_:str, output_df: pd.DataFrame , hosted_df: pd.DataFrame
     outputs to excel
     '''  
 
-    
     if os.path.exists(path_):
         os.remove(path_)
         print("{0} has been deleted.".format(path_))
@@ -594,33 +734,6 @@ def output_to_excel(path_:str, output_df: pd.DataFrame , hosted_df: pd.DataFrame
        
     
 
-def lil_bugger()-> None:
-
-    print("*"*50)
-
-    return None
-
-def lil_spacer()-> None:
-
-    print("\n")
-
-    return None
-
-def lil_dashy()-> None:
-
-    print("-" * 50)
-
-    return None
-
-def return_today()-> date:
-    '''
-    REturn today dates
-    '''
-
-    today = date.today()
-    date_ = today.strftime("%Y%m%d")
-
-    return date_
 
 
 
