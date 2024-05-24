@@ -23,7 +23,7 @@ importlib.reload(config)
 class DidNotAppend(Exception):
     pass
 
-
+func_log_path_ = config.login_dict['out_path'] + fr'\func_timing_log_.txt'
 
 def timer_decorator(file_path)->Callable:
 
@@ -120,7 +120,7 @@ def return_today()-> date:
 #         return (f"{in_function} {dash_}")
 #     return wrap_function
 
-@timer_decorator(f"timing_log_{return_today()}.txt")
+@timer_decorator(func_log_path_)
 def loggin_agol(config_file_name: str) -> GIS:
 
     '''
@@ -209,7 +209,7 @@ def request_token(gis_source: GIS) -> str:
 
     return token
 
-@timer_decorator(f"timing_log_{return_today()}.txt")
+@timer_decorator(func_log_path_)
 def log_in_source(gis_source: GIS, token_: str)-> None:
     '''
     Logs into the source 
@@ -221,7 +221,7 @@ def log_in_source(gis_source: GIS, token_: str)-> None:
 
     return source_users
 
-@timer_decorator(f"timing_log_{return_today()}.txt")
+@timer_decorator(func_log_path_)
 def get_gis_content(gis_source)->List:
     '''
     Pulls GIS items of all owners and type Feature Service
@@ -341,7 +341,7 @@ def check_status_error(response_json, status_, error_)->str:
 
     return status_, error_
 
-@timer_decorator(f"timing_log_{return_today()}.txt")
+@timer_decorator(func_log_path_)
 def return_json(url_: str, params_: dict):
     '''
     returns json items
@@ -351,7 +351,7 @@ def return_json(url_: str, params_: dict):
     return response.json()
 
 
-@timer_decorator(f"timing_log_{return_today()}.txt")
+@timer_decorator(func_log_path_)
 def pull_json(item_list: List, params: dict) -> dict:
     '''
     iterate through items
@@ -446,7 +446,7 @@ def pull_json(item_list: List, params: dict) -> dict:
 
     return dict_, url_dict_
 
-@timer_decorator(f"timing_log_{return_today()}.txt")
+@timer_decorator(func_log_path_)
 def iterate_json(dict_:dict, url_dict_:dict)->List:
     '''
     iterates through json

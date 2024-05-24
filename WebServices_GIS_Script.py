@@ -21,7 +21,10 @@ importlib.reload(config)
 
 print("Done importing libraries...")
 
-@utils.timer_decorator(f"asyn_timing_log_{utils.return_today()}.txt")
+asyn_path_ = config.login_dict['out_path'] + fr'\async_timing_log_{utils.return_today()}.txt'
+
+
+@utils.timer_decorator(asyn_path_)
 def main_function():
     date_ = utils.return_today()
 
