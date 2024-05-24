@@ -21,7 +21,7 @@ importlib.reload(config)
 
 print("Done importing libraries...")
 
-@utils.time_decorator(f"asyn_timing_log_{utils.return_today()}.txt")
+@utils.timer_decorator(f"asyn_timing_log_{utils.return_today()}.txt")
 def main_function():
     date_ = utils.return_today()
 
